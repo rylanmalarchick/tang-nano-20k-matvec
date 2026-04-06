@@ -1,0 +1,7 @@
+build/
+*.fs
+*.json
+!constraints/*.cst
+
+# Compiled binaries
+analysis/c_jitter_test
