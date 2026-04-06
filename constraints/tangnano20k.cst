@@ -32,19 +32,20 @@ IO_LOC "uart_rx" 70;
 IO_PORT "uart_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
 // HDMI output (TMDS differential pairs via TLVDS_OBUF)
+// No DRIVE attribute: TLVDS_OBUF manages differential drive internally.
 IO_LOC "tmds_clk_p" 33;
-IO_PORT "tmds_clk_p" PULL_MODE=NONE DRIVE=8;
+IO_PORT "tmds_clk_p" PULL_MODE=NONE;
 IO_LOC "tmds_clk_n" 34;
-IO_PORT "tmds_clk_n" PULL_MODE=NONE DRIVE=8;
+IO_PORT "tmds_clk_n" PULL_MODE=NONE;
 IO_LOC "tmds_d_p[0]" 35;
-IO_PORT "tmds_d_p[0]" PULL_MODE=NONE DRIVE=8;
+IO_PORT "tmds_d_p[0]" PULL_MODE=NONE;
 IO_LOC "tmds_d_n[0]" 36;
-IO_PORT "tmds_d_n[0]" PULL_MODE=NONE DRIVE=8;
+IO_PORT "tmds_d_n[0]" PULL_MODE=NONE;
 IO_LOC "tmds_d_p[1]" 37;
-IO_PORT "tmds_d_p[1]" PULL_MODE=NONE DRIVE=8;
+IO_PORT "tmds_d_p[1]" PULL_MODE=NONE;
 IO_LOC "tmds_d_n[1]" 38;
-IO_PORT "tmds_d_n[1]" PULL_MODE=NONE DRIVE=8;
+IO_PORT "tmds_d_n[1]" PULL_MODE=NONE;
 IO_LOC "tmds_d_p[2]" 39;
-IO_PORT "tmds_d_p[2]" PULL_MODE=NONE DRIVE=8;
+IO_PORT "tmds_d_p[2]" PULL_MODE=NONE;
 IO_LOC "tmds_d_n[2]" 40;
-IO_PORT "tmds_d_n[2]" PULL_MODE=NONE DRIVE=8;
+IO_PORT "tmds_d_n[2]" PULL_MODE=NONE;

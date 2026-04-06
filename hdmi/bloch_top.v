@@ -69,7 +69,20 @@ module bloch_top (
     // CLKDIV: 126 / 5 = 25.2 MHz pixel clock
     // =================================================================
     wire pix_clk;
-    wire rst_n = pll_lock;
+
+    // Synchronize PLL lock deassertion to pix_clk (2-FF synchronizer).
+    // Assert reset asynchronously (pll_lock low), deassert synchronously.
+    reg rst_sync0, rst_sync1;
+    always @(posedge pix_clk or negedge pll_lock) begin
+        if (!pll_lock) begin
+            rst_sync0 <= 1'b0;
+            rst_sync1 <= 1'b0;
+        end else begin
+            rst_sync0 <= 1'b1;
+            rst_sync1 <= rst_sync0;
+        end
+    end
+    wire rst_n = rst_sync1;
 
     CLKDIV u_clkdiv (
         .RESETN (rst_n),
@@ -355,6 +368,17 @@ module bloch_top (
     );
 
     // =================================================================
+    // Sync/DE pipeline delay: match bloch_renderer's 1-cycle latency
+    // so that hsync/vsync/de arrive at TMDS encoder aligned with RGB.
+    // =================================================================
+    reg hsync_d, vsync_d, de_d;
+    always @(posedge pix_clk) begin
+        hsync_d <= vga_hsync;
+        vsync_d <= vga_vsync;
+        de_d    <= vga_de;
+    end
+
+    // =================================================================
     // HDMI transmitter
     // =================================================================
     hdmi_tx u_hdmi (
@@ -364,9 +388,9 @@ module bloch_top (
         .r          (vid_r),
         .g          (vid_g),
         .b          (vid_b),
-        .hsync      (vga_hsync),
-        .vsync      (vga_vsync),
-        .de         (vga_de),
+        .hsync      (hsync_d),
+        .vsync      (vsync_d),
+        .de         (de_d),
         .tmds_clk_p (tmds_clk_p),
         .tmds_clk_n (tmds_clk_n),
         .tmds_d_p   (tmds_d_p),
