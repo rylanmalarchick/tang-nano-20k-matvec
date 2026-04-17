@@ -14,9 +14,9 @@ SRC        = $(wildcard $(PROJECT)/*.v) $(wildcard lib/*.v)
 
 # Output files
 BUILD_DIR  = build/$(PROJECT)
-JSON       = $(BUILD_DIR)/$(PROJECT).json
-PNR        = $(BUILD_DIR)/$(PROJECT)_pnr.json
-PACK       = $(BUILD_DIR)/$(PROJECT).fs
+JSON       = $(BUILD_DIR)/$(TOP).json
+PNR        = $(BUILD_DIR)/$(TOP)_pnr.json
+PACK       = $(BUILD_DIR)/$(TOP).fs
 
 .PHONY: all synth pnr pack flash flash-persistent sim clean
 

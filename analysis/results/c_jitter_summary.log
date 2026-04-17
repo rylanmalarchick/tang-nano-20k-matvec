@@ -1,0 +1,6 @@
+C matvec 9x9 jitter test (10000 trials):
+  mean:   41.9 ns
+  stddev: 94.1 ns
+  min:    38.0 ns
+  max:    9449.0 ns
+  range:  9411.0 ns (224.9x mean)

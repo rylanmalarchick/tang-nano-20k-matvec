@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Phase 3: C vs FPGA performance comparison for 9x9 complex matvec.
+Phase 3: CPU vs FPGA performance comparison for 9x9 complex matvec.
 
 Measures:
   - FPGA cycle count via hardware counter (T command)
@@ -184,68 +184,141 @@ def benchmark_fpga(ser, n_trials):
 # Load C benchmark data
 # =====================================================================
 
-def load_c_benchmarks():
-    """Load lindblad-bench CSV results for d=3."""
-    base = Path.home() / "dev/research/lindblad-bench/benchmarks"
+def resolve_lindblad_bench_dir(explicit_path=None):
+    """Find the active lindblad-bench repo without assuming the old mirror path."""
+    candidates = []
+    if explicit_path:
+        candidates.append(Path(explicit_path).expanduser())
+
+    env_path = os.environ.get("LINDBLAD_BENCH_DIR")
+    if env_path:
+        candidates.append(Path(env_path).expanduser())
+
+    here = Path(__file__).resolve()
+    tang_root = here.parents[1]
+    candidates.extend([
+        tang_root.parent / "lindblad-bench",
+        Path.cwd() / "lindblad-bench",
+        Path.home() / "dev" / "projects" / "lindblad-bench",
+        Path.home() / "dev" / "research" / "lindblad-bench",
+    ])
+
+    seen = set()
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if (candidate / "benchmarks").is_dir():
+            return candidate
+
+    raise FileNotFoundError(
+        "Could not locate lindblad-bench. "
+        "Pass --lindblad-bench or set LINDBLAD_BENCH_DIR."
+    )
+
+
+def load_cpu_batch_csv(path):
+    rows = []
+    with open(path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if int(row["d"]) != 3:
+                continue
+            rows.append({
+                "label": f"threads={row['threads']}, batch={row['batch_size']}",
+                "threads": int(row["threads"]),
+                "batch_size": int(row["batch_size"]),
+                "ns_per_step": float(row["median_ns_per_state_step"]),
+                "gflops": float(row["median_gflops"]),
+            })
+    return rows
+
+
+def load_compiler_csv(path):
+    rows = []
+    with open(path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if int(row["d"]) != 3:
+                continue
+            rows.append({
+                "label": f"{row['flags']} {row['variant']}",
+                "threads": None,
+                "batch_size": None,
+                "ns_per_step": float(row["ns_per_step"]),
+                "gflops": float(row["gflops"]),
+            })
+    return rows
+
+
+def load_c_benchmarks(lindblad_bench_dir):
+    """Load lindblad-bench CPU results for d=3, preferring the current batch CSVs."""
+    base = Path(lindblad_bench_dir) / "benchmarks"
     results = {}
 
-    for name, fname in [("i9-13980HX", "compiler_results.csv"),
-                        ("Ryzen", "compiler_results_ryzen.csv")]:
+    cpu_batch_files = [
+        ("i9-13980HX", "cpu_batch_results_intel.csv"),
+        ("Ryzen 5 1600", "cpu_batch_results_ryzen.csv"),
+    ]
+    for name, fname in cpu_batch_files:
         path = base / fname
-        if not path.exists():
-            continue
-        rows = []
-        with open(path) as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                if int(row['d']) == 3:
-                    rows.append({
-                        'flags': row['flags'],
-                        'variant': row['variant'],
-                        'ns_per_step': float(row['ns_per_step']),
-                        'gflops': float(row['gflops']),
-                    })
-        results[name] = rows
+        if path.exists():
+            rows = load_cpu_batch_csv(path)
+            if rows:
+                results[name] = rows
+
+    if results:
+        return results
+
+    legacy_files = [
+        ("i9-13980HX", "compiler_results.csv"),
+        ("Ryzen", "compiler_results_ryzen.csv"),
+    ]
+    for name, fname in legacy_files:
+        path = base / fname
+        if path.exists():
+            rows = load_compiler_csv(path)
+            if rows:
+                results[name] = rows
+
     return results
+
+
+def best_single_state_row(rows):
+    single_rows = [row for row in rows if row["batch_size"] in (None, 1)]
+    if single_rows:
+        return min(single_rows, key=lambda row: row["ns_per_step"])
+    return min(rows, key=lambda row: row["ns_per_step"])
 
 
 # =====================================================================
 # Reporting
 # =====================================================================
 
-CLK_MHZ = 27.0
 D = 3
 D2 = D * D
 # FLOPs per matvec: d^2 * d^2 * 8 (8 real ops per complex MAC)
 FLOPS_PER_STEP = D2 * D2 * 8  # 9*9*8 = 648
 
 
-def print_report(cycle_counts, wall_times, multi_results, c_data):
+def print_report(cycle_counts, wall_times, multi_results, c_data, clk_mhz):
     print("\n" + "=" * 72)
     print("FPGA vs C Performance Comparison: 9x9 Complex Matvec (d=3)")
     print("=" * 72)
 
     # FPGA stats
     fpga_cycles = int(np.median(cycle_counts))
-    fpga_ns = fpga_cycles / CLK_MHZ * 1000  # ns
+    fpga_ns = fpga_cycles / clk_mhz * 1000  # ns
     fpga_unique = np.unique(cycle_counts)
 
-    print(f"\n--- FPGA (Tang Nano 20K, GW2AR-18, {CLK_MHZ:.0f} MHz) ---")
+    print(f"\n--- FPGA (Tang Nano 20K, GW2AR-18, {clk_mhz:.0f} MHz core clock) ---")
     print(f"  Cycles/step:     {fpga_cycles}")
     print(f"  Time/step:       {fpga_ns:.1f} ns")
     print(f"  MFLOP/s:         {FLOPS_PER_STEP / fpga_ns * 1000:.1f}")
-    print(f"  DSP18 used:      4 / 48")
-    print(f"  LUT used:        ~1300 / 20736 (6%)")
     print(f"  Unique counts:   {fpga_unique} ({len(fpga_unique)} distinct values)")
     print(f"  Jitter:          {cycle_counts.max() - cycle_counts.min()} cycles "
           f"(min={cycle_counts.min()}, max={cycle_counts.max()})")
-
-    # PLL projection
-    pll_mhz = 232.0  # from synthesis Fmax
-    pll_ns = fpga_cycles / pll_mhz * 1000
-    print(f"\n  With PLL @ {pll_mhz:.0f} MHz (synthesis Fmax):")
-    print(f"  Time/step:       {pll_ns:.1f} ns")
-    print(f"  MFLOP/s:         {FLOPS_PER_STEP / pll_ns * 1000:.1f}")
 
     # Multi-step results
     print(f"\n  Multi-step cycle counts:")
@@ -258,34 +331,50 @@ def print_report(cycle_counts, wall_times, multi_results, c_data):
     # C benchmarks
     for cpu_name, rows in c_data.items():
         print(f"\n--- CPU ({cpu_name}) ---")
-        # Find best d=3 result
-        best = min(rows, key=lambda r: r['ns_per_step'])
-        print(f"  Best variant:    {best['flags']} {best['variant']}")
-        print(f"  Time/step:       {best['ns_per_step']:.1f} ns")
-        print(f"  GFLOP/s:         {best['gflops']:.2f}")
-        print(f"  MFLOP/s:         {best['gflops']*1000:.0f}")
+        best_latency = best_single_state_row(rows)
+        best_overall = min(rows, key=lambda r: r['ns_per_step'])
+        print(f"  Best single-state config: {best_latency['label']}")
+        print(f"  Single-state time/step:   {best_latency['ns_per_step']:.1f} ns")
+        print(f"  Single-state GFLOP/s:     {best_latency['gflops']:.2f}")
+        print(f"  Best overall config:      {best_overall['label']}")
+        print(f"  Best overall time/step:   {best_overall['ns_per_step']:.1f} ns")
+        print(f"  Best overall GFLOP/s:     {best_overall['gflops']:.2f}")
 
         print(f"\n  All d=3 results:")
-        print(f"  {'Flags':<20s} {'Variant':<8s} {'ns/step':>10s} {'GFLOP/s':>10s} {'vs FPGA':>10s}")
-        print(f"  {'-'*20} {'-'*8} {'-'*10} {'-'*10} {'-'*10}")
+        print(f"  {'Config':<24s} {'ns/step':>10s} {'GFLOP/s':>10s} {'vs FPGA':>10s}")
+        print(f"  {'-'*24} {'-'*10} {'-'*10} {'-'*10}")
         for r in sorted(rows, key=lambda x: x['ns_per_step']):
             ratio = fpga_ns / r['ns_per_step']
-            print(f"  {r['flags']:<20s} {r['variant']:<8s} "
+            print(f"  {r['label']:<24s} "
                   f"{r['ns_per_step']:>10.1f} {r['gflops']:>10.2f} "
                   f"{ratio:>9.1f}x")
 
     # Summary comparison
     print(f"\n--- Summary ---")
-    print(f"  FPGA @ {CLK_MHZ:.0f} MHz:  {fpga_ns:.0f} ns/step")
+    print(f"  FPGA @ {clk_mhz:.0f} MHz:  {fpga_ns:.0f} ns/step")
     if c_data:
-        cpu_name = list(c_data.keys())[0]
-        best_c = min(c_data[cpu_name], key=lambda r: r['ns_per_step'])
-        print(f"  CPU best:         {best_c['ns_per_step']:.0f} ns/step "
-              f"({best_c['flags']} {best_c['variant']})")
-        print(f"  CPU/FPGA ratio:   {fpga_ns / best_c['ns_per_step']:.1f}x "
+        best_latency_cpu = None
+        best_latency_name = None
+        best_overall_cpu = None
+        best_overall_name = None
+        for cpu_name, rows in c_data.items():
+            latency_row = best_single_state_row(rows)
+            overall_row = min(rows, key=lambda row: row["ns_per_step"])
+            if best_latency_cpu is None or latency_row["ns_per_step"] < best_latency_cpu["ns_per_step"]:
+                best_latency_cpu = latency_row
+                best_latency_name = cpu_name
+            if best_overall_cpu is None or overall_row["ns_per_step"] < best_overall_cpu["ns_per_step"]:
+                best_overall_cpu = overall_row
+                best_overall_name = cpu_name
+
+        print(f"  CPU best single-state: {best_latency_cpu['ns_per_step']:.0f} ns/step "
+              f"({best_latency_name}, {best_latency_cpu['label']})")
+        print(f"  CPU/FPGA latency ratio: {fpga_ns / best_latency_cpu['ns_per_step']:.1f}x "
               f"(CPU is faster)")
-        print(f"  FPGA @ PLL:       {pll_ns:.0f} ns/step "
-              f"(ratio: {pll_ns / best_c['ns_per_step']:.1f}x)")
+        print(f"  CPU best batched:      {best_overall_cpu['ns_per_step']:.0f} ns/step "
+              f"({best_overall_name}, {best_overall_cpu['label']})")
+        print(f"  CPU/FPGA throughput ratio: {fpga_ns / best_overall_cpu['ns_per_step']:.1f}x "
+              f"(CPU is faster)")
 
     print(f"\n  Key advantage: FPGA has ZERO jitter ({cycle_counts.max() - cycle_counts.min()} cycle spread)")
     print(f"  This matters for real-time quantum control feedback loops.")
@@ -347,13 +436,22 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--port', default='/dev/ttyUSB1')
     parser.add_argument('--baud', type=int, default=115200)
+    parser.add_argument('--clk-mhz', type=float, default=135.0,
+                        help='FPGA core clock in MHz for cycle-to-time conversion')
+    parser.add_argument('--lindblad-bench', type=str, default=None,
+                        help='Path to the lindblad-bench repo')
     parser.add_argument('--trials', type=int, default=1000,
                         help='Number of single-step trials for jitter measurement')
     parser.add_argument('--no-fpga', action='store_true',
                         help='Skip FPGA measurement, only show C data')
     args = parser.parse_args()
 
-    c_data = load_c_benchmarks()
+    try:
+        lindblad_bench_dir = resolve_lindblad_bench_dir(args.lindblad_bench)
+        c_data = load_c_benchmarks(lindblad_bench_dir)
+    except FileNotFoundError as exc:
+        print(f"Warning: {exc}")
+        c_data = {}
     if not c_data:
         print("Warning: no C benchmark CSVs found in lindblad-bench/benchmarks/")
 
@@ -373,7 +471,7 @@ def main():
         cycle_counts, wall_times, multi_results = benchmark_fpga(ser, args.trials)
         ser.close()
 
-    print_report(cycle_counts, wall_times, multi_results, c_data)
+    print_report(cycle_counts, wall_times, multi_results, c_data, args.clk_mhz)
 
     outpath = os.path.join(os.path.dirname(__file__), 'jitter_histogram.png')
     plot_jitter(cycle_counts, outpath)

@@ -161,8 +161,8 @@ Install via [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build) for 
 # Build and flash the blink example
 make PROJECT=blink flash
 
-# Build and flash the matvec core (UART control)
-make PROJECT=matvec TOP=matvec_top flash
+# Build and flash the UART-controlled matvec core at 135 MHz
+make PROJECT=matvec TOP=matvec_pll_top flash
 
 # Build and flash the HDMI Bloch sphere demo
 make PROJECT=hdmi TOP=bloch_top flash

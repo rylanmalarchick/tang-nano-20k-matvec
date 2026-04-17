@@ -1,0 +1,21 @@
+Building d=3 transmon propagator...
+  Max |P_ij|: 1.000000
+Opening /dev/ttyUSB1 at 115200 baud...
+Loading propagator (324 bytes)...
+  OK (32 ms)
+Loading rho (36 bytes)...
+  OK
+
+Running 20 steps, comparing FPGA vs Q1.15 reference...
+  Step    1: trace=0.999939, max_err=(0,0)
+  Step    2: trace=0.999908, max_err=(0,0)
+  Step    3: trace=0.999878, max_err=(0,0)
+  Step   20: trace=0.999359, max_err=(0,0)
+
+All 20 steps: bit-exact match with Q1.15 reference.
+
+Multi-step test: reload + 20 steps at once...
+  FPGA time: 6.1 ms (includes UART overhead)
+  Compute: 20 steps * 94 cycles / 135 MHz = 13.9 us
+  Max error vs reference: re=0, im=0
+  PASS

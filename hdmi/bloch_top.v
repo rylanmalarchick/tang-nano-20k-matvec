@@ -70,8 +70,17 @@ module bloch_top (
     // =================================================================
     wire pix_clk;
 
-    // Synchronize PLL lock deassertion to pix_clk (2-FF synchronizer).
-    // Assert reset asynchronously (pll_lock low), deassert synchronously.
+    // CLKDIV uses pll_lock directly — it must come out of reset
+    // before pix_clk exists for anything downstream to work.
+    CLKDIV u_clkdiv (
+        .RESETN (pll_lock),
+        .HCLKIN (serial_clk),
+        .CLKOUT (pix_clk),
+        .CALIB  (1'b1)
+    );
+
+    // Synchronize PLL lock deassertion to pix_clk (2-FF synchronizer)
+    // for downstream logic. Assert reset asynchronously, deassert synchronously.
     reg rst_sync0, rst_sync1;
     always @(posedge pix_clk or negedge pll_lock) begin
         if (!pll_lock) begin
@@ -83,13 +92,6 @@ module bloch_top (
         end
     end
     wire rst_n = rst_sync1;
-
-    CLKDIV u_clkdiv (
-        .RESETN (rst_n),
-        .HCLKIN (serial_clk),
-        .CLKOUT (pix_clk),
-        .CALIB  (1'b1)
-    );
     defparam u_clkdiv.DIV_MODE = "5";
     defparam u_clkdiv.GSREN    = "false";
 
@@ -267,7 +269,10 @@ module bloch_top (
                 demo_rho_wr_re   <= (demo_addr == 7'd0) ? ONE : ZERO;
                 demo_rho_wr_im   <= ZERO;
                 if (demo_addr[3:0] == 4'd8) begin
-                    demo_state <= DEMO_RUNNING;
+                    // Kick off the first step immediately
+                    demo_start   <= 1'b1;
+                    demo_n_steps <= 16'd1;
+                    demo_state   <= DEMO_STEPPING;
                 end else begin
                     demo_addr <= demo_addr + 1;
                 end
@@ -281,7 +286,9 @@ module bloch_top (
                     demo_state <= DEMO_LOAD_P;
                 end else if (s2_pulse) begin
                     demo_paused <= ~demo_paused;
-                end else if (vsync_falling && !demo_paused && core_done) begin
+                end else if (vsync_falling && !demo_paused) begin
+                    // Step once per frame. No core_done check needed:
+                    // 94 cycles @ 25.2 MHz = 3.7 us << 16.7 ms frame period.
                     demo_start  <= 1'b1;
                     demo_n_steps <= 16'd1;
                     demo_state  <= DEMO_STEPPING;

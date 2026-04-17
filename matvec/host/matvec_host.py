@@ -156,6 +156,8 @@ def main():
     parser.add_argument('--port', default='/dev/ttyUSB1')
     parser.add_argument('--baud', type=int, default=115200)
     parser.add_argument('--steps', type=int, default=10)
+    parser.add_argument('--clk-mhz', type=float, default=135.0,
+                        help='FPGA core clock in MHz for cycle-to-time conversion')
     args = parser.parse_args()
 
     print(f"Building d=3 transmon propagator...")
@@ -246,8 +248,8 @@ def main():
     err_im = np.max(np.abs(fpga_im.astype(int) - ref_im.astype(int)))
     match = err_re <= 1 and err_im <= 1
     print(f"  FPGA time: {(t1-t0)*1000:.1f} ms (includes UART overhead)")
-    print(f"  Compute: {args.steps} steps * 94 cycles / 27 MHz = "
-          f"{args.steps * 94 / 27e6 * 1e6:.1f} us")
+    print(f"  Compute: {args.steps} steps * 94 cycles / {args.clk_mhz:.0f} MHz = "
+          f"{args.steps * 94 / args.clk_mhz:.1f} us")
     print(f"  Max error vs reference: re={err_re}, im={err_im}")
     print(f"  {'PASS' if match else 'FAIL'}")
 
