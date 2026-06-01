@@ -175,9 +175,12 @@ bool test_known_matvec(Vmatvec_9x9* dut) {
         int16_t re, im;
         read_rho(dut, i, &re, &im);
 
+        // Deterministic integer matvec: RTL extracts acc[30:15], the C
+        // reference does acc >> 15 -- the same operation, so the result is
+        // exactly equal. Tolerate zero error; "bit-exact" must mean it.
         int err_re = abs(re - ref_re[i]);
         int err_im = abs(im - ref_im[i]);
-        if (err_re > 1 || err_im > 1) {
+        if (err_re > 0 || err_im > 0) {
             printf("  FAIL [%d]: got (%d,%d) ref (%d,%d) err (%d,%d)\n",
                    i, re, im, ref_re[i], ref_im[i], err_re, err_im);
             pass = false;
@@ -229,7 +232,7 @@ bool test_multistep(Vmatvec_9x9* dut) {
 
         int err_re = abs(re - ref_re[i]);
         int err_im = abs(im - ref_im[i]);
-        if (err_re > 1 || err_im > 1) {
+        if (err_re > 0 || err_im > 0) {
             printf("  FAIL [%d]: got (%d,%d) ref (%d,%d) err (%d,%d)\n",
                    i, re, im, ref_re[i], ref_im[i], err_re, err_im);
             pass = false;

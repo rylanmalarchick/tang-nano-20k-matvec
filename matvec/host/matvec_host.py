@@ -206,7 +206,9 @@ def main():
         # Compare
         err_re = np.max(np.abs(fpga_re.astype(int) - ref_re.astype(int)))
         err_im = np.max(np.abs(fpga_im.astype(int) - ref_im.astype(int)))
-        match = err_re <= 1 and err_im <= 1
+        # FPGA and Q1.15 reference do the same integer matvec, so a true
+        # bit-exact match means zero error, not <=1 LSB.
+        match = err_re == 0 and err_im == 0
 
         if not match:
             print(f"  Step {step}: MISMATCH (max err re={err_re}, im={err_im})")
@@ -246,7 +248,7 @@ def main():
 
     err_re = np.max(np.abs(fpga_re.astype(int) - ref_re.astype(int)))
     err_im = np.max(np.abs(fpga_im.astype(int) - ref_im.astype(int)))
-    match = err_re <= 1 and err_im <= 1
+    match = err_re == 0 and err_im == 0
     print(f"  FPGA time: {(t1-t0)*1000:.1f} ms (includes UART overhead)")
     print(f"  Compute: {args.steps} steps * 94 cycles / {args.clk_mhz:.0f} MHz = "
           f"{args.steps * 94 / args.clk_mhz:.1f} us")
