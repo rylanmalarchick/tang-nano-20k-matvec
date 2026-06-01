@@ -302,17 +302,24 @@ D2 = D * D
 FLOPS_PER_STEP = D2 * D2 * 8  # 9*9*8 = 648
 
 
-def print_report(cycle_counts, wall_times, multi_results, c_data, clk_mhz):
+def print_report(cycle_counts, wall_times, multi_results, c_data, clk_mhz,
+                 synthetic=False):
     print("\n" + "=" * 72)
     print("FPGA vs C Performance Comparison: 9x9 Complex Matvec (d=3)")
     print("=" * 72)
+
+    if synthetic:
+        print("\n  *** SYNTHETIC - NO HARDWARE: FPGA figures below are "
+              "hard-coded ***")
+        print("  *** (--no-fpga). Do not report these as measured results. ***")
 
     # FPGA stats
     fpga_cycles = int(np.median(cycle_counts))
     fpga_ns = fpga_cycles / clk_mhz * 1000  # ns
     fpga_unique = np.unique(cycle_counts)
 
-    print(f"\n--- FPGA (Tang Nano 20K, GW2AR-18, {clk_mhz:.0f} MHz core clock) ---")
+    tag = " [SYNTHETIC]" if synthetic else ""
+    print(f"\n--- FPGA (Tang Nano 20K, GW2AR-18, {clk_mhz:.0f} MHz core clock){tag} ---")
     print(f"  Cycles/step:     {fpga_cycles}")
     print(f"  Time/step:       {fpga_ns:.1f} ns")
     print(f"  MFLOP/s:         {FLOPS_PER_STEP / fpga_ns * 1000:.1f}")
@@ -456,12 +463,14 @@ def main():
         print("Warning: no C benchmark CSVs found in lindblad-bench/benchmarks/")
 
     if args.no_fpga:
-        # Synthetic FPGA data for report generation without hardware
-        cycle_counts = np.array([94] * args.trials)
+        # Synthetic FPGA data for report generation without hardware.
+        # Numbers mirror real hardware: 95-cycle single-step latency,
+        # 94 amortized (10 steps = 95 + 9*94 = 941).
+        cycle_counts = np.array([95] * args.trials)
         wall_times = np.array([3.5e6] * args.trials)
         multi_results = {
-            1: {'cycles': 94, 'wall_ns': 3.5e6, 'cycles_per_step': 94},
-            10: {'cycles': 940, 'wall_ns': 35e6, 'cycles_per_step': 94},
+            1: {'cycles': 95, 'wall_ns': 3.5e6, 'cycles_per_step': 95.0},
+            10: {'cycles': 941, 'wall_ns': 35e6, 'cycles_per_step': 94.1},
         }
     else:
         ser = serial.Serial(args.port, args.baud, timeout=5)
@@ -471,7 +480,8 @@ def main():
         cycle_counts, wall_times, multi_results = benchmark_fpga(ser, args.trials)
         ser.close()
 
-    print_report(cycle_counts, wall_times, multi_results, c_data, args.clk_mhz)
+    print_report(cycle_counts, wall_times, multi_results, c_data, args.clk_mhz,
+                 synthetic=args.no_fpga)
 
     outpath = os.path.join(os.path.dirname(__file__), 'jitter_histogram.png')
     plot_jitter(cycle_counts, outpath)
