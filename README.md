@@ -32,7 +32,7 @@ The core algorithm — repeatedly applying a precomputed propagator matrix P to 
 
 **Fixed-point format**: Q1.15 (16-bit signed, 1 sign + 15 fractional bits, range [-1, +0.99997]).
 
-**Resource usage**: 4 DSP18 blocks (of 48), ~1300 LUTs (of 20736), P matrix in inferred BSRAM.
+**Resource usage**: 4 DSP18 blocks (of 48), ~880 LUTs (of 20736), P matrix in BSRAM (2 of 46 blocks, one each for the real and imaginary halves).
 
 ## Project Structure
 

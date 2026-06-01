@@ -53,9 +53,14 @@ module matvec_9x9 (
 
     // =================================================================
     // P matrix storage (inferred BSRAM, synchronous read)
+    //
+    // syn_ramstyle="block_ram" forces the GW2A BSRAM primitive. Without it,
+    // Yosys maps this 81x16 SDP array to distributed LUT RAM (RAM16SDP4),
+    // leaving all 46 BSRAM blocks idle. One BSRAM holds re and im easily
+    // (81*16 = 1296 bits each, vs 18 Kbit/block).
     // =================================================================
-    reg signed [15:0] p_re [0:80];
-    reg signed [15:0] p_im [0:80];
+    (* syn_ramstyle = "block_ram" *) reg signed [15:0] p_re [0:80];
+    (* syn_ramstyle = "block_ram" *) reg signed [15:0] p_im [0:80];
     reg signed [15:0] p_rd_re, p_rd_im;
     reg [6:0] p_rd_addr;
 
