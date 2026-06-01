@@ -137,9 +137,9 @@ def hs_norm(a: np.ndarray, b: np.ndarray) -> float:
 def run_analysis(n_steps: int, do_plot: bool):
     d = 3
     d2 = d * d
-    dt = 0.5  # ns
+    dt = 0.5  # us (T1/T2 are in us, so dt is too)
 
-    print(f"Building d={d} transmon propagator (dt={dt} ns)...")
+    print(f"Building d={d} transmon propagator (dt={dt} us)...")
     P = build_transmon_propagator(d=d, dt=dt)
 
     print(f"Propagator P shape: {P.shape}")
@@ -163,7 +163,7 @@ def run_analysis(n_steps: int, do_plot: bool):
     rho_re_31, rho_im_31 = quantize_q(rho_double, 31)
 
     # Evolve
-    print(f"\nEvolving for {n_steps} steps ({n_steps * dt:.1f} ns)...")
+    print(f"\nEvolving for {n_steps} steps ({n_steps * dt:.1f} us)...")
     errors_15 = np.zeros(n_steps)
     errors_31 = np.zeros(n_steps)
     trace_err_15 = np.zeros(n_steps)
@@ -205,7 +205,7 @@ def run_analysis(n_steps: int, do_plot: bool):
 
     # Final summary
     print(f"\n{'='*60}")
-    print(f"Results after {n_steps} steps ({n_steps * dt:.1f} ns):")
+    print(f"Results after {n_steps} steps ({n_steps * dt:.1f} us):")
     print(f"  Q1.15 (16-bit, ~4.5 decimal digits):")
     print(f"    Final HS error: {errors_15[-1]:.2e}")
     print(f"    Final trace error: {trace_err_15[-1]:.2e}")
@@ -243,22 +243,22 @@ def plot_results(n_steps, dt, errors_15, errors_31, trace_err_15, trace_err_31):
         return
 
     steps = np.arange(1, n_steps + 1)
-    time_ns = steps * dt
+    time_us = steps * dt
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
     # HS error
-    ax1.semilogy(time_ns, errors_15, label="Q1.15 (16-bit)", alpha=0.8)
-    ax1.semilogy(time_ns, errors_31, label="Q1.31 (32-bit)", alpha=0.8)
+    ax1.semilogy(time_us, errors_15, label="Q1.15 (16-bit)", alpha=0.8)
+    ax1.semilogy(time_us, errors_31, label="Q1.31 (32-bit)", alpha=0.8)
     ax1.set_ylabel("Hilbert-Schmidt error vs double")
     ax1.set_title("Fixed-point precision: 9x9 Lindblad propagator matvec")
     ax1.legend()
     ax1.grid(True, alpha=0.3)
 
     # Trace error
-    ax2.semilogy(time_ns, trace_err_15, label="Q1.15 trace error", alpha=0.8)
-    ax2.semilogy(time_ns, trace_err_31, label="Q1.31 trace error", alpha=0.8)
-    ax2.set_xlabel("Time (ns)")
+    ax2.semilogy(time_us, trace_err_15, label="Q1.15 trace error", alpha=0.8)
+    ax2.semilogy(time_us, trace_err_31, label="Q1.31 trace error", alpha=0.8)
+    ax2.set_xlabel("Time (us)")
     ax2.set_ylabel("|Tr(rho) - 1|")
     ax2.legend()
     ax2.grid(True, alpha=0.3)
