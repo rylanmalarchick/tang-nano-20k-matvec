@@ -21,7 +21,7 @@ The core algorithm — repeatedly applying a precomputed propagator matrix P to 
                     └─────────────────────────────────┘
 ```
 
-**Matvec core pipeline** (4 stages, 94 cycles per step):
+**Matvec core pipeline** (4 stages, 94 cycles/step amortized; 95-cycle latency for a single step due to a 1-cycle pipeline fill):
 
 | Stage | Operation | Hardware |
 |-------|-----------|----------|
@@ -181,7 +181,7 @@ python analysis/precision_test.py --steps 2000 --plot
 
 ## Context
 
-This project is a learning vehicle for FPGA-based quantum simulation, built alongside [lindblad-bench](https://arxiv.org/abs/2603.18052) (a bare-metal C implementation of the same algorithm optimized for CPU cache hierarchies and SIMD). The FPGA version trades throughput for deterministic latency — every step completes in exactly 94 clock cycles with zero jitter, a property required for real-time feedback control of quantum hardware.
+This project is a learning vehicle for FPGA-based quantum simulation, built alongside [lindblad-bench](https://arxiv.org/abs/2603.18052) (a bare-metal C implementation of the same algorithm optimized for CPU cache hierarchies and SIMD). The FPGA version trades throughput for deterministic latency — a single step completes in exactly 95 clock cycles (94 amortized over a multi-step run, plus a 1-cycle pipeline fill) with zero jitter, a property required for real-time feedback control of quantum hardware.
 
 ## Hardware
 
